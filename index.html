@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rapid Response — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --red:#E53535; --red-dim:rgba(229,53,53,0.15); --red-border:rgba(229,53,53,0.35);
+      --teal:#0ABFA3; --teal-dim:rgba(10,191,163,0.12);
+      --border:rgba(0,0,0,0.08); --dark:#1a1a2e; --muted:#5A6A8A;
+      --green:#22C55E; --green-dim:rgba(34,197,94,0.12);
+      --amber:#F59E0B; --amber-dim:rgba(245,158,11,0.12);
+      --nav-h:64px; --bottom-h:68px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{height:100%;}
+    body{min-height:100%;background:#f5f7fa;font-family:'DM Sans',sans-serif;color:var(--dark);display:flex;flex-direction:column;overflow-x:hidden;}
+
+    /* NAV */
+    .topnav{position:fixed;top:0;left:0;width:100%;z-index:1000;height:var(--nav-h);display:flex;justify-content:space-between;align-items:center;padding:0 24px;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.08);}
+    .topnav-left{display:flex;align-items:center;gap:10px;}
+    .topnav-brand{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:var(--dark);}
+    .status-pill{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:var(--green-dim);border:1px solid rgba(34,197,94,0.3);font-size:11px;font-weight:500;color:#16a34a;}
+    .status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s ease-in-out infinite;}
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+    .topnav-back{padding:6px 12px;border-radius:8px;background:#f0f2f5;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;text-decoration:none;transition:all 0.2s;}
+    .topnav-back:hover{background:#e5e7eb;color:var(--dark);}
+
+    /* MAIN BOX */
+    .main-box{width:90%;max-width:560px;margin:calc(var(--nav-h) + 20px) auto calc(var(--bottom-h) + 24px);background:#fff;border-radius:25px;padding:28px 24px;box-shadow:0 10px 35px rgba(0,0,0,.10);border:1px solid #e8e8e8;display:flex;flex-direction:column;gap:16px;}
+    .greeting{padding:4px 0 2px;}
+    .greeting-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--dark);}
+    .greeting-msg{font-size:13px;color:var(--muted);margin-top:4px;}
+
+    /* LOCATION BAR */
+    .location-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:rgba(10,191,163,0.08);border:1px solid rgba(10,191,163,0.25);font-size:12px;color:#0e7490;cursor:pointer;transition:background 0.2s;}
+    .location-bar:hover{background:rgba(10,191,163,0.14);}
+    .loc-coords{flex:1;font-weight:500;}
+    .loc-acc{color:var(--muted);font-size:11px;}
+    .loc-maps{font-size:11px;font-weight:600;color:var(--teal);padding:3px 8px;border-radius:6px;background:rgba(10,191,163,0.12);border:1px solid rgba(10,191,163,0.3);white-space:nowrap;}
+
+    /* SOS */
+    .sos-wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px 0 12px;}
+    .sos-ring-outer{position:relative;width:180px;height:180px;display:flex;align-items:center;justify-content:center;}
+    .sos-pulse-ring{position:absolute;inset:-18px;border-radius:50%;border:1.5px solid rgba(229,53,53,0.2);animation:sosRing 2.5s ease-out infinite;}
+    .sos-pulse-ring:nth-child(2){animation-delay:0.8s;}
+    .sos-pulse-ring:nth-child(3){animation-delay:1.6s;}
+    @keyframes sosRing{0%{transform:scale(0.85);opacity:0.7;}100%{transform:scale(1.25);opacity:0;}}
+    #sosBigBtn{position:relative;z-index:2;width:160px;height:160px;border-radius:50%;background:conic-gradient(from 0deg,#C62828,#E53535,#EF5350,#E53535,#C62828);border:none;color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 0 0 6px rgba(229,53,53,0.12),0 0 0 12px rgba(229,53,53,0.06),0 20px 60px rgba(229,53,53,0.3);transition:transform 0.15s,box-shadow 0.15s;user-select:none;-webkit-user-select:none;touch-action:none;}
+    #sosBigBtn.holding{transform:scale(0.93);box-shadow:0 0 0 10px rgba(229,53,53,0.25),0 0 0 22px rgba(229,53,53,0.1),0 20px 60px rgba(229,53,53,0.5);}
+    #sosBigBtn.fired{background:conic-gradient(from 0deg,#7b0000,#C62828,#E53535,#C62828,#7b0000);}
+    .sos-label{font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:5px;line-height:1;}
+    .sos-sub{font-size:10px;letter-spacing:1.5px;opacity:0.8;text-transform:uppercase;}
+    .sos-progress-svg{position:absolute;inset:0;z-index:3;pointer-events:none;}
+    .sos-progress-circle{fill:none;stroke:rgba(255,255,255,0.85);stroke-width:4;stroke-linecap:round;stroke-dasharray:477;stroke-dashoffset:477;transform-origin:center;transform:rotate(-90deg);transition:stroke-dashoffset 0.05s linear;}
+    .sos-hint{font-size:12px;color:var(--muted);letter-spacing:0.5px;}
+
+    /* DIVIDER */
+    .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+    /* ACTION GRID */
+    .action-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .action-card{background:white;border:1px solid var(--border);border-radius:18px;padding:18px 16px;cursor:pointer;display:flex;flex-direction:column;gap:10px;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;text-decoration:none;color:inherit;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+    .action-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.1);}
+    .action-card:active{transform:scale(0.97);}
+    .ac-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+    .ac-title{font-size:13px;font-weight:600;color:var(--dark);line-height:1.2;}
+    .ac-desc{font-size:11px;color:var(--muted);line-height:1.4;}
+    .ac-location .ac-icon{background:rgba(10,191,163,0.12);}
+    .ac-location:hover{border-color:rgba(10,191,163,0.4);}
+    .ac-contacts .ac-icon{background:var(--amber-dim);}
+    .ac-contacts:hover{border-color:rgba(245,158,11,0.35);}
+    .ac-hospitals .ac-icon{background:var(--red-dim);}
+    .ac-hospitals:hover{border-color:rgba(229,53,53,0.35);}
+    .ac-history .ac-icon{background:#f0f2f5;}
+    .ac-history:hover{border-color:rgba(0,0,0,0.15);}
+
+    /* BOTTOM NAV */
+    .bottomnav{position:fixed;bottom:0;left:0;right:0;height:var(--bottom-h);z-index:200;display:flex;align-items:stretch;background:white;border-top:1px solid var(--border);padding:0 8px;padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -4px 16px rgba(0,0,0,0.06);}
+    .bnnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;border-radius:12px;padding:8px 4px;transition:background 0.2s;border:none;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;}
+    .bnnav-item:hover{background:#f5f7fa;}
+    .bnnav-item.active .bn-label{color:var(--teal);font-weight:600;}
+    .bn-icon{font-size:20px;line-height:1;}
+    .bn-label{font-size:10px;font-weight:500;letter-spacing:0.3px;}
+    /* ============================= */
+/* EMERGENCY PROFILE MODAL */
+/* ============================= */
+
+.profile-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 9999;
+  padding: 20px;
+}
+
+.profile-modal.show {
+  display: flex;
+}
+
+.emergency-profile-box {
+  width: min(945px, 95vw);
+  background: #0b1822;
+
+  border: 1px solid rgba(0, 220, 200, 0.25);
+  border-radius: 30px;
+
+  padding: 36px;
+
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(0, 220, 200, 0.05);
+
+  animation: profileOpen 0.25s ease;
+}
+
+@keyframes profileOpen {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* HEADER */
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+
+.profile-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+
+  color: #00d9c5;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+
+.profile-icon {
+  width: 48px;
+  height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: rgba(120, 70, 255, 0.15);
+  border: 1px solid rgba(140, 90, 255, 0.5);
+
+  color: #9a70ff;
+  font-size: 27px;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* EDIT BUTTON */
+
+.edit-profile-btn {
+  height: 45px;
+  padding: 0 22px;
+
+  border-radius: 12px;
+
+  border: 1px solid rgba(0, 220, 200, 0.4);
+  background: rgba(0, 220, 200, 0.05);
+
+  color: #00d9c5;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.edit-profile-btn:hover {
+  background: rgba(0, 220, 200, 0.12);
+}
+
+/* CLOSE BUTTON */
+
+.close-profile-btn {
+  width: 45px;
+  height: 45px;
+
+  border-radius: 12px;
+
+  border: 1px solid rgba(100, 120, 145, 0.25);
+  background: rgba(40, 55, 70, 0.25);
+
+  color: #71829a;
+
+  font-size: 30px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.close-profile-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* PROFILE GRID */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.profile-card {
+  min-height: 108px;
+
+  padding: 22px 24px;
+
+  background: #111e29;
+
+  border: 1px solid rgba(100, 125, 150, 0.18);
+  border-radius: 17px;
+}
+
+.profile-label {
+  color: #647895;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  letter-spacing: 2px;
+
+  margin-bottom: 13px;
+}
+
+.profile-value {
+  color: #e5e9f0;
+
+  font-size: 19px;
+  font-weight: 600;
+}
+
+/* MOBILE */
+
+@media (max-width: 750px) {
+
+  .emergency-profile-box {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .profile-header {
+    align-items: flex-start;
+  }
+
+  .profile-title {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+
+  .profile-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-actions {
+    gap: 6px;
+  }
+
+  .edit-profile-btn {
+    padding: 0 12px;
+  }
+}
+
+    /* SOS OVERLAY */
+    .sos-overlay{position:fixed;inset:0;z-index:500;background:rgba(8,12,20,0.92);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity 0.35s;}
+    .sos-overlay.open{opacity:1;pointer-events:all;}
+    .sos-alert-card{background:#0a0f1a;border:1px solid var(--red-border);border-radius:24px;padding:28px 24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:14px;box-shadow:0 0 80px rgba(229,53,53,0.2);transform:scale(0.94) translateY(20px);transition:transform 0.4s cubic-bezier(.16,1,.3,1);}
+    .sos-overlay.open .sos-alert-card{transform:scale(1) translateY(0);}
+    .sac-header{display:flex;align-items:center;gap:12px;}
+    .sac-icon-wrap{width:44px;height:44px;border-radius:50%;background:var(--red-dim);border:1px solid var(--red-border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;animation:sacPulse 1.4s ease-in-out infinite;}
+    @keyframes sacPulse{0%,100%{box-shadow:0 0 0 0 rgba(229,53,53,0.4);}50%{box-shadow:0 0 0 10px rgba(229,53,53,0);}}
+    .sac-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;color:#ff7070;}
+    .sac-sub{font-size:13px;color:var(--muted);}
+
+    /* STEPS */
+    .sac-steps{display:flex;flex-direction:column;gap:8px;}
+    .sac-step{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);font-size:13px;color:#EEF2FF;transition:border-color 0.3s,background 0.3s;}
+    .sac-step.done{border-color:rgba(34,197,94,0.35);background:rgba(34,197,94,0.07);}
+    .sac-step.active{border-color:var(--red-border);background:var(--red-dim);}
+    .step-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center;}
+    .step-text{flex:1;line-height:1.35;}
+    .step-text strong{display:block;font-weight:600;color:#EEF2FF;font-size:13px;}
+    .step-text span{font-size:11px;color:var(--muted);}
+    .step-check{font-size:15px;flex-shrink:0;}
+
+    /* LIVE LOCATION BAR */
+    .sac-location{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--teal-dim);border:1px solid rgba(10,191,163,0.25);font-size:12px;color:#5eecd8;}
+    .sac-location-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;animation:blink 1.2s infinite;}
+
+    /* VOLUNTEER ACCEPTED NOTE */
+    .sac-volunteer-note{padding:10px 14px;border-radius:10px;background:rgba(10,191,163,0.08);border:1px solid rgba(10,191,163,0.25);font-size:12px;color:#0ABFA3;display:none;line-height:1.6;}
+
+    /* OFFLINE NOTE */
+    .sac-offline-note{padding:10px 14px;border-radius:10px;background:var(--amber-dim);border:1px solid rgba(245,158,11,0.25);font-size:12px;color:var(--amber);display:none;}
+
+    /* CALL 112 BANNER — prominent, always visible in overlay */
+    .sac-call-banner{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:rgba(229,53,53,0.12);border:1px solid rgba(229,53,53,0.4);}
+    .sac-call-label{flex:1;}
+    .sac-call-label strong{display:block;font-size:13px;font-weight:700;color:#ff7070;}
+    .sac-call-label span{font-size:11px;color:var(--muted);}
+    .sac-call-btn{padding:10px 18px;border-radius:10px;background:var(--red);color:#fff;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s;flex-shrink:0;}
+    .sac-call-btn:hover{background:#c62828;}
+    .sac-call-btn:active{transform:scale(0.97);}
+
+    /* ACTIONS */
+    .sac-actions{display:flex;gap:10px;}
+    .sac-btn{flex:1;padding:11px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;border:none;}
+    .sac-btn-dismiss{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:#9aa5b8;}
+    .sac-btn-dismiss:hover{color:#EEF2FF;}
+    .sac-btn-tracking{background:rgba(10,191,163,0.15);border:1px solid rgba(10,191,163,0.3);color:#5eecd8;}
+    .sac-btn-tracking:hover{background:rgba(10,191,163,0.25);}
+
+    /* SHEETS */
+    .modal-backdrop{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s;}
+    .modal-backdrop.open{opacity:1;pointer-events:all;}
+    .modal-sheet{background:white;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:560px;transform:translateY(40px);transition:transform 0.4s cubic-bezier(.16,1,.3,1);max-height:85vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.12);}
+    .modal-backdrop.open .modal-sheet{transform:translateY(0);}
+    .sheet-handle{width:36px;height:4px;border-radius:4px;background:#e5e7eb;margin:0 auto 20px;}
+    .sheet-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;margin-bottom:16px;color:var(--dark);}
+    .contact-list{display:flex;flex-direction:column;gap:10px;}
+    .contact-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#f9fafb;border:1px solid var(--border);}
+    .contact-avatar{width:40px;height:40px;border-radius:50%;background:rgba(10,191,163,0.1);border:1px solid rgba(10,191,163,0.25);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+    .contact-info{flex:1;}
+    .contact-name{font-size:14px;font-weight:500;color:var(--dark);}
+    .contact-rel{font-size:11px;color:var(--muted);}
+    .contact-call{padding:6px 12px;border-radius:8px;background:var(--green-dim);color:#16a34a;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;border:none;}
+    .contact-call:hover{background:rgba(34,197,94,0.2);}
+    .add-contact-btn{width:100%;padding:12px;border-radius:12px;margin-top:12px;background:rgba(10,191,163,0.07);border:1px dashed rgba(10,191,163,0.4);color:var(--teal);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;}
+    .add-contact-btn:hover{background:rgba(10,191,163,0.14);}
+    .history-list{display:flex;flex-direction:column;gap:10px;}
+    .history-row{padding:14px 16px;border-radius:14px;background:#f9fafb;border:1px solid var(--border);}
+    .history-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+    .history-type{font-size:13px;font-weight:600;color:var(--dark);}
+    .history-time{font-size:11px;color:var(--muted);}
+    .history-addr{font-size:12px;color:var(--muted);}
+    .history-badge{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+    .hb-resolved{background:var(--green-dim);color:#16a34a;border:1px solid rgba(34,197,94,0.25);}
+    .hb-pending{background:var(--amber-dim);color:#d97706;border:1px solid rgba(245,158,11,0.25);}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+    .main-box > *{animation:fadeUp 0.5s cubic-bezier(.16,1,.3,1) both;}
+    .main-box > *:nth-child(1){animation-delay:.05s;}
+    .main-box > *:nth-child(2){animation-delay:.1s;}
+    .main-box > *:nth-child(3){animation-delay:.15s;}
+    .main-box > *:nth-child(4){animation-delay:.2s;}
+    .main-box > *:nth-child(5){animation-delay:.25s;}
+  </style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav-left">
+    <svg width="28" height="28" viewBox="0 0 100 100">
+      <path d="M50 85 L20 55 A15 15 0 1 1 50 35 A15 15 0 1 1 80 55 Z" fill="#E53535"/>
+      <polyline points="25,55 35,55 42,45 50,65 60,40 70,55 75,55" fill="none" stroke="white" stroke-width="4"/>
+    </svg>
+    <span class="topnav-brand">Rapid Response</span>
+    <div class="status-pill"><span class="status-dot"></span>Safe</div>
+  </div>
+  <a href="index.html" class="topnav-back">← Back</a>
+</nav>
+
+<div class="main-box">
+
+  <div class="greeting">
+    <p class="greeting-name" id="greetName">👋 Hi, Prasanna</p>
+    <p class="greeting-msg">🟢 Safe today? We're here if you need help.</p>
+  </div>
+
+  
+
+  <div class="sos-wrap">
+    <div class="sos-ring-outer">
+      <div class="sos-pulse-ring"></div>
+      <div class="sos-pulse-ring"></div>
+      <div class="sos-pulse-ring"></div>
+      <button id="sosBigBtn"
+        onpointerdown="startHold(event)"
+        onpointerup="endHold(event)"
+        onpointerleave="endHold(event)"
+        oncontextmenu="return false">
+        <svg class="sos-progress-svg" viewBox="0 0 160 160">
+          <circle class="sos-progress-circle" id="sosProgressCircle" cx="80" cy="80" r="76"/>
+        </svg>
+        <span class="sos-label">SOS</span>
+        <span class="sos-sub">Press &amp; Hold</span>
+      </button>
+    </div>
+    <p class="sos-hint" id="sosHintText">Hold for 2 seconds to activate</p>
+  </div>
+
+  <div class="divider">Quick Actions</div>
+
+  <div class="action-grid">
+    <button class="action-card ac-location" onclick="openGoogleMaps()">
+      <div class="ac-icon">📍</div>
+      <div><p class="ac-title">Live Location</p><p class="ac-desc">View your GPS on Google Maps</p></div>
+    </button>
+    <button class="action-card ac-contacts" onclick="openSheet('contacts')">
+      <div class="ac-icon">❤️</div>
+      <div><p class="ac-title">Emergency Contacts</p><p class="ac-desc">Manage who gets alerted</p></div>
+    </button>
+    <a class="action-card ac-hospitals" href="hospitals.html">
+      <div class="ac-icon">🏥</div>
+      <div><p class="ac-title">Nearby Hospitals</p><p class="ac-desc">Find the best hospital near you</p></div>
+    </a>
+    <button class="action-card ac-history" onclick="openSheet('history')">
+      <div class="ac-icon">📜</div>
+      <div><p class="ac-title">Emergency History</p><p class="ac-desc">Past alerts &amp; responses</p></div>
+    </button>
+  </div>
+
+</div>
+
+<!-- SOS OVERLAY -->
+<div class="sos-overlay" id="sosOverlay">
+  <div class="sos-alert-card">
+
+    <div class="sac-header">
+      <div class="sac-icon-wrap">🚨</div>
+      <div>
+        <p class="sac-title">SOS Activated</p>
+        <p class="sac-sub">Emergency response in progress</p>
+      </div>
+    </div>
+
+    <!-- Step 1: Volunteers -->
+    <div class="sac-steps">
+      <div class="sac-step" id="step-volunteer">
+        <span class="step-icon">🙋</span>
+        <div class="step-text">
+          <strong>Notifying Nearby Volunteers</strong>
+          <span id="volunteerStepText">Finding volunteers with your location…</span>
+        </div>
+        <span class="step-check" id="check-volunteer">⏳</span>
+      </div>
+
+      <!-- Step 2: Emergency contacts -->
+      <div class="sac-step" id="step-contact">
+        <span class="step-icon">💬</span>
+        <div class="step-text">
+          <strong>Alerting Emergency Contacts</strong>
+          <span id="contactStepText">Sending your name + live location…</span>
+        </div>
+        <span class="step-check" id="check-contact">⏳</span>
+      </div>
+
+      <!-- Step 3: Live location -->
+      <div class="sac-step" id="step-location">
+        <span class="step-icon">📍</span>
+        <div class="step-text">
+          <strong>Live Location Shared</strong>
+          <span>Updating every 30s to all parties</span>
+        </div>
+        <span class="step-check" id="check-location">⏳</span>
+      </div>
+    </div>
+
+    <!-- Live location bar -->
+    <div class="sac-location" id="sacLocationBar" style="display:none;">
+      <div class="sac-location-dot"></div>
+      <span id="sacLocationText">Location active</span>
+    </div>
+
+    <!-- Volunteer accepted note (shown via Firestore listener) -->
+    <div class="sac-volunteer-note" id="volunteerNote"></div>
+
+    <!-- Offline fallback note -->
+    <div class="sac-offline-note" id="offlineNote">
+      ⚠️ No internet — SMS fallback sent with your location.
+    </div>
+
+    <!-- Call 112 — prominent banner, user taps manually -->
+    <div class="sac-call-banner">
+      <div class="sac-call-label">
+        <strong>📞 Call Emergency Services</strong>
+        <span>Tap to dial 112 immediately</span>
+      </div>
+      <button class="sac-call-btn" onclick="callEmergency()">Call 112</button>
+    </div>
+
+    <div class="sac-actions">
+      <button class="sac-btn sac-btn-dismiss" onclick="dismissSOS()">Dismiss</button>
+      <button class="sac-btn sac-btn-tracking" onclick="window.location.href='volunteer-tracking.html'">📍 Track Volunteer</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- CONTACTS SHEET -->
+<div class="modal-backdrop" id="sheet-contacts" onclick="closeSheet('contacts', event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <p class="sheet-title">❤️ Emergency Contacts</p>
+    <div class="contact-list" id="contactList"></div>
+    <button class="add-contact-btn" onclick="addContact()">+ Add Contact</button>
+  </div>
+</div>
+
+<!-- HISTORY SHEET -->
+<div class="modal-backdrop" id="sheet-history" onclick="closeSheet('history', event)">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <p class="sheet-title">📜 Emergency History</p>
+    <div class="history-list" id="historyList"></div>
+    <button class="add-contact-btn" onclick="clearHistory()">
+🗑 Clear History
+</button>
+
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottomnav">
+  <button class="bnnav-item active" onclick="setTab(this)">
+    <span class="bn-icon">🏠</span><span class="bn-label">Home</span>
+  </button>
+  <button class="bnnav-item" onclick="setTab(this); openSheet('history')">
+    <span class="bn-icon">🔔</span><span class="bn-label">Alerts</span>
+  </button>
+  <button class="bnnav-item" onclick="setTab(this); openEmergencyProfile()">
+  <span class="bn-icon">👤</span>
+  <span class="bn-label">Profile</span>
+</button>
+</nav>
+
+<script>
+  firebase.initializeApp({
+    apiKey:"AIzaSyD4n2n0482uzNDz4JxPzL6tmGOA8Cqt2So",
+    authDomain:"rapidresponse-8c598.firebaseapp.com",
+    projectId:"rapidresponse-8c598"
+  });
+  const db = firebase.firestore();
+
+  let userLat = null, userLng = null;
+  let locationTrackingInterval = null;
+  let volunteerListenerUnsub = null;
+  let currentEmergencyId = null;
+  let holdTimer = null, holdStart = null;
+  const HOLD_DURATION = 2000;
+
+  const USER_NAME = localStorage.getItem('rr_name') || 'Prasanna';
+
+  let contacts = JSON.parse(localStorage.getItem('rr_contacts') || 'null') || [
+    { name:"Mom", rel:"Mother", phone:"+91XXXXXXXXXX", emoji:"👩" },
+    { name:"Dad", rel:"Father", phone:"+91XXXXXXXXXX", emoji:"👨" }
+  ];
+  let history = [];
+
+  // ── Location ──
+  navigator.geolocation?.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+    document.getElementById('locationText').textContent = `${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+    document.getElementById('locationAccuracy').textContent = `±${Math.round(pos.coords.accuracy)}m`;
+    document.getElementById('mapsBtn').style.display = 'block';
+  }, () => {
+    document.getElementById('locationText').textContent = 'Location unavailable';
+  }, { enableHighAccuracy: true });
+
+  function openGoogleMaps() {
+    if (!userLat) { alert('Location not available yet.'); return; }
+    window.open(`https://www.google.com/maps?q=${userLat},${userLng}&z=16`, '_blank');
+  }
+
+  // ── Hold-to-SOS ──
+  const btn = document.getElementById('sosBigBtn');
+  const circle = document.getElementById('sosProgressCircle');
+  const circumference = 477;
+
+  function startHold(e) {
+    e.preventDefault();
+    holdStart = Date.now();
+    btn.classList.add('holding');
+    document.getElementById('sosHintText').textContent = 'Keep holding…';
+    holdTimer = setInterval(() => {
+      const elapsed = Date.now() - holdStart;
+      const progress = Math.min(elapsed / HOLD_DURATION, 1);
+      circle.style.strokeDashoffset = circumference * (1 - progress);
+      if (progress >= 1) { clearInterval(holdTimer); holdTimer = null; fireSOS(); }
+    }, 30);
+  }
+
+  function endHold(e) {
+    if (!holdTimer) return;
+    clearInterval(holdTimer); holdTimer = null;
+    btn.classList.remove('holding');
+    circle.style.strokeDashoffset = circumference;
+    document.getElementById('sosHintText').textContent = 'Hold for 2 seconds to activate';
+  }
+
+  async function fireSOS() {
+    btn.classList.remove('holding');
+    btn.classList.add('fired');
+    document.getElementById('sosHintText').textContent = '🚨 SOS Activated';
+    document.getElementById('sosOverlay').classList.add('open');
+    navigator.onLine ? await handleOnlineSOS() : handleOfflineSOS();
+  }
+
+  async function handleOnlineSOS() {
+    const mapLink = userLat
+      ? `https://www.google.com/maps?q=${userLat},${userLng}`
+      : 'Location unavailable';
+
+    // ── STEP 1: Save to Firestore & notify volunteers ──
+    markStep('volunteer', 'active');
+    let docRef;
+    try {
+      docRef = await db.collection('emergencies').add({
+        userName: USER_NAME,
+        lat: userLat, lng: userLng,
+        type: 'SOS',
+        contacts: contacts.map(c => c.phone),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: 'active',
+        volunteerAccepted: false,
+        volunteerName: null,
+        volunteerLat: null,
+        volunteerLng: null
+      });
+      currentEmergencyId = docRef.id;
+      localStorage.setItem('currentEmergencyId', docRef.id);
+    } catch(e) { console.error(e); }
+
+    // Send volunteer alert via backend (fire and forget)
+    try {
+      fetch('http://localhost:5000/send-emergency', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          volunteerMessage: `🚨 Emergency Alert!\n\nSomeone needs urgent help nearby.\n\n📍 Their location:\n${mapLink}\n\n🆔 ID: ${currentEmergencyId}\n\nOpen the volunteer app to accept.`,
+          lat: userLat, lng: userLng,
+          type: 'volunteer-alert',
+          emergencyId: currentEmergencyId
+        })
+      });
+    } catch(e) {}
+
+    document.getElementById('volunteerStepText').textContent = 'Volunteers notified with your live location';
+    setTimeout(() => markStep('volunteer', 'done'), 1000);
+
+    // ── STEP 2: Alert emergency contacts with name + live location ──
+    await new Promise(r => setTimeout(r, 1200));
+    markStep('contact', 'active');
+    try {
+      await fetch('http://localhost:5000/send-emergency', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contactMessage: `🚨 *${USER_NAME} is in danger!*\n\n${USER_NAME} needs help immediately.\n\n📍 Live Location:\n${mapLink}\n\nPlease respond or call 112 now.`,
+          contacts: contacts.map(c => c.phone),
+          lat: userLat, lng: userLng,
+          type: 'contact-alert',
+          emergencyId: currentEmergencyId
+        })
+      });
+      document.getElementById('contactStepText').textContent =
+        `Sent to ${contacts.length} contact(s) — "${USER_NAME} is in danger + live location"`;
+    } catch(e) {
+      // Backend not up — offline SMS fallback for contacts
+      const smsBody = encodeURIComponent(
+        `🚨 ${USER_NAME} is in danger and needs help!\n📍 Location: ${mapLink}\nPlease respond or call 112.`
+      );
+      contacts.forEach((c, i) => {
+        setTimeout(() => {
+          window.open(`sms:${c.phone.replace(/\s/g,'')}?body=${smsBody}`);
+        }, i * 600);
+      });
+      document.getElementById('contactStepText').textContent =
+        `SMS sent to ${contacts.length} contact(s) with your location`;
+    }
+    setTimeout(() => markStep('contact', 'done'), 1000);
+
+    // ── STEP 3: Live location tracking starts ──
+    await new Promise(r => setTimeout(r, 1200));
+    markStep('location', 'active');
+    startLiveLocationTracking();
+    document.getElementById('sacLocationBar').style.display = 'flex';
+    document.getElementById('sacLocationText').textContent =
+      `Live: ${userLat?.toFixed(5) ?? '—'}, ${userLng?.toFixed(5) ?? '—'}`;
+    setTimeout(() => markStep('location', 'done'), 800);
+
+   // ── Listen for volunteer acceptance ──
+listenForVolunteerAcceptance();
+addToHistory('SOS', userLat, userLng, 'active');
+
+// Open Volunteer Dashboard after all steps finish
+setTimeout(() => {
+
+    localStorage.setItem("rr_userLat", userLat);
+    localStorage.setItem("rr_userLng", userLng);
+
+    window.location.href = "volunteer-tracking.html";
+
+},1500);
+  }
+  function handleOfflineSOS() {
+    const mapLink = userLat ? `https://maps.google.com?q=${userLat},${userLng}` : 'Location unavailable';
+
+    // Step 1: Volunteer (can't reach — skip)
+    markStep('volunteer', 'active');
+    document.getElementById('volunteerStepText').textContent = 'Offline — volunteer alert skipped';
+    setTimeout(() => markStep('volunteer', 'done'), 800);
+
+    // Step 2: SMS to all contacts with name
+    setTimeout(() => {
+      markStep('contact', 'active');
+      const smsBody = encodeURIComponent(
+        `🚨 ${USER_NAME} is in danger and needs help immediately!\n📍 Location: ${mapLink}\nPlease call 112 now.`
+      );
+      contacts.forEach((c, i) => {
+        setTimeout(() => {
+          window.open(`sms:${c.phone.replace(/\s/g,'')}?body=${smsBody}`);
+        }, i * 600);
+      });
+      document.getElementById('contactStepText').textContent = `SMS sent to ${contacts.length} contact(s)`;
+      setTimeout(() => markStep('contact', 'done'), 800);
+    }, 1000);
+
+    // Step 3: Static location
+    setTimeout(() => {
+      markStep('location', 'active');
+      document.getElementById('sacLocationBar').style.display = 'flex';
+      document.getElementById('sacLocationText').textContent =
+        userLat ? `Static: ${userLat.toFixed(5)}, ${userLng.toFixed(5)}` : 'Location unavailable';
+      setTimeout(() => markStep('location', 'done'), 600);
+      document.getElementById('offlineNote').style.display = 'block';
+    }, 2200);
+  }
+
+  function startLiveLocationTracking() {
+    if (!currentEmergencyId) return;
+    locationTrackingInterval = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+        db.collection('emergencies').doc(currentEmergencyId).update({
+          lat: userLat, lng: userLng,
+          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(() => {});
+        document.getElementById('sacLocationText').textContent =
+          `Live: ${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+      });
+    }, 30000);
+  }
+
+  function listenForVolunteerAcceptance() {
+    if (!currentEmergencyId) return;
+    volunteerListenerUnsub = db.collection('emergencies').doc(currentEmergencyId)
+      .onSnapshot(doc => {
+        const data = doc.data();
+        if (data?.volunteerAccepted && data?.volunteerName) {
+          const volunteerMapLink = data.volunteerLat && data.volunteerLng
+            ? `https://www.google.com/maps?q=${data.volunteerLat},${data.volunteerLng}`
+            : null;
+          const note = document.getElementById('volunteerNote');
+          note.style.display = 'block';
+          note.innerHTML = `🙋 <strong>${data.volunteerName}</strong> has accepted your SOS!`
+            + (volunteerMapLink ? ` <a href="${volunteerMapLink}" target="_blank" style="color:#0ABFA3;text-decoration:underline;">View their location ↗</a>` : '')
+            + `<br><small style="color:var(--muted);">ETA: ${data.volunteerETA || 'En route'}</small>`;
+          if (volunteerListenerUnsub) volunteerListenerUnsub();
+        }
+      });
+  }
+
+  function callEmergency() { window.open('tel:112'); }
+
+  function markStep(id, state) {
+    document.getElementById('step-' + id).className = 'sac-step ' + state;
+    document.getElementById('check-' + id).textContent =
+      state === 'done' ? '✅' : state === 'active' ? '🔄' : '⏳';
+  }
+
+  function dismissSOS() {
+    document.getElementById('sosOverlay').classList.remove('open');
+    btn.classList.remove('fired');
+    document.getElementById('sosHintText').textContent = 'Hold for 2 seconds to activate';
+    ['volunteer','contact','location'].forEach(id => markStep(id, ''));
+    document.getElementById('offlineNote').style.display = 'none';
+    document.getElementById('volunteerNote').style.display = 'none';
+    document.getElementById('sacLocationBar').style.display = 'none';
+    circle.style.strokeDashoffset = circumference;
+    if (locationTrackingInterval) { clearInterval(locationTrackingInterval); locationTrackingInterval = null; }
+    if (volunteerListenerUnsub) { volunteerListenerUnsub(); volunteerListenerUnsub = null; }
+  }
+
+  // ── Contacts ──
+  function renderContacts() {
+    const list = document.getElementById('contactList');
+    if (!contacts.length) {
+      list.innerHTML = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:16px 0;">No contacts yet.</p>';
+      return;
+    }
+    list.innerHTML = contacts.map(c => `
+      <div class="contact-row">
+        <div class="contact-avatar">${c.emoji}</div>
+        <div class="contact-info">
+          <p class="contact-name">${c.name}</p>
+          <p class="contact-rel">${c.rel} · ${c.phone}</p>
+        </div>
+        <button class="contact-call" onclick="window.open('tel:${c.phone}')">Call</button>
+      </div>`).join('');
+  }
+
+  function addContact() {
+    const name  = prompt('Contact name:'); if (!name) return;
+    const phone = prompt('Phone (+91XXXXXXXXXX):'); if (!phone) return;
+    const rel   = prompt('Relationship:') || 'Contact';
+    contacts.push({ name, rel, phone, emoji:'👤' });
+    localStorage.setItem('rr_contacts', JSON.stringify(contacts));
+    renderContacts();
+  }
+
+  // ── History ──
+function addToHistory(type, lat, lng, status) {
+
+    const item = {
+        type,
+        status,
+        time: new Date().toLocaleString("en-IN", {
+            dateStyle:"medium",
+            timeStyle:"short"
+        }),
+        addr: lat
+            ? `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+            : "Unknown"
+    };
+
+    history.unshift(item);
+
+    // Save only to browser history
+    localStorage.setItem("rr_history", JSON.stringify(history));
+
+    renderHistory();
+}
+
+  async function renderHistory() {
+    const list = document.getElementById("historyList");
+
+    if (history.length === 0) {
+        list.innerHTML = `
+            <p style="color:var(--muted);font-size:13px;text-align:center;padding:16px 0;">
+                No emergency history.
+            </p>`;
+        return;
+    }
+
+    list.innerHTML = history.map(h => `
+        <div class="history-row">
+            <div class="history-top">
+                <span class="history-type">🚨 ${h.type}</span>
+                <span class="history-time">${h.time}</span>
+            </div>
+
+            <p class="history-addr">📍 ${h.addr}</p>
+
+            <span class="history-badge ${
+                h.status=="active"
+                ? "hb-pending"
+                : "hb-resolved"
+            }">
+                ${h.status=="active" ? "⏳ Pending" : "✅ Resolved"}
+            </span>
+        </div>
+    `).join("");
+}
+function clearHistory(){
+
+    if(!confirm("Clear history from this device?")){
+        return;
+    }
+
+    history=[];
+
+    localStorage.removeItem("rr_history");
+
+    renderHistory();
+
+    alert("History cleared from this device.");
+}
+  function openSheet(id) {
+    if (id === 'contacts') renderContacts();
+    if (id === 'history') renderHistory();
+    document.getElementById('sheet-' + id).classList.add('open');
+  }
+  function closeSheet(id, e) {
+    if (e.target === document.getElementById('sheet-' + id))
+      document.getElementById('sheet-' + id).classList.remove('open');
+  }
+  function setTab(el) {
+    document.querySelectorAll('.bnnav-item').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  }
+  function openEmergencyProfile() {
+  const modal = document.getElementById("emergencyProfileModal");
+
+  modal.classList.add("show");
+
+  document.body.style.overflow = "hidden";
+}
+
+function closeEmergencyProfile() {
+  const modal = document.getElementById("emergencyProfileModal");
+
+  modal.classList.remove("show");
+
+  document.body.style.overflow = "";
+}
+
+function editEmergencyProfile() {
+  // Put your existing profile-edit function here
+  console.log("Edit Emergency Profile");
+}
+document.getElementById("emergencyProfileModal").addEventListener("click", function(e) {
+  if (e.target === this) {
+    closeEmergencyProfile();
+  }
+});
+
+  document.getElementById('greetName').textContent = `👋 Hi, ${USER_NAME}`;
+</script>
+<!-- EMERGENCY PROFILE MODAL -->
+<div id="emergencyProfileModal" class="profile-modal">
+  <div class="emergency-profile-box">
+
+    <div class="profile-header">
+      <div class="profile-title">
+        <div class="profile-icon">♙</div>
+        <span>EMERGENCY PROFILE</span>
+      </div>
+
+      <div class="profile-actions">
+        <button class="edit-profile-btn" onclick="editEmergencyProfile()">
+          ✎ Edit
+        </button>
+
+        <button class="close-profile-btn" onclick="closeEmergencyProfile()">
+          ×
+        </button>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+
+      <div class="profile-card">
+        <div class="profile-label">NAME</div>
+        <div class="profile-value" id="profileName">—</div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-label">BLOOD GROUP</div>
+        <div class="profile-value" id="profileBlood">O+</div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-label">ALLERGIES</div>
+        <div class="profile-value" id="profileAllergies">None</div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-label">EMERGENCY CONTACT</div>
+        <div class="profile-value" id="profileContact">
+          +91 XXXXXXXXXX
+        </div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-label">CONDITIONS</div>
+        <div class="profile-value" id="profileConditions">None</div>
+      </div>
+
+      <div class="profile-card">
+        <div class="profile-label">INSURANCE</div>
+        <div class="profile-value" id="profileInsurance">N/A</div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

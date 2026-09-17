@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Hospital Finder — Smart Rapid Response</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #00c2a8;
+      --teal-dim: #009e87;
+      --teal-glow: rgba(0,194,168,0.2);
+      --bg: #132d2d;
+      --card-bg: #f6faf9;
+      --card-bg2: #071a18;
+      --border: rgba(0,194,168,0.18);
+      --text: #eefaf8;
+      --muted: rgba(252, 249, 249, 0.42);
+      --red: #ff4444;
+      --green: #00e57a;
+      --orange: #ffab40;
+      --gold: #ffd700;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,194,168,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,194,168,0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      z-index: 0; pointer-events: none;
+    }
+
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 28px;
+      background: rgba(2,15,14,0.88); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-icon { width: 34px; height: 34px; background: var(--teal); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+    .nav-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--text); }
+    .nav-back { text-decoration: none; color: var(--muted); font-size: 12px; font-family: 'Space Mono', monospace; transition: color 0.2s; }
+    .nav-back:hover { color: var(--teal); }
+    
+
+    .main { position: relative; z-index: 1; padding: 32px 20px; max-width: 1000px; margin: 0 auto; }
+
+    .alert-bar {
+      background: rgba(255,171,64,0.1); border: 1px solid rgba(255,171,64,0.35);
+      border-radius: 12px; padding: 12px 18px; margin-bottom: 28px;
+      display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--orange);
+      animation: slideIn 0.5s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform: translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+
+    
+
+    /* Chat Assistant */
+    .voice-bar {
+      background: rgba(0,194,168,0.06); border: 1px solid var(--border);
+      border-radius: 14px; padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0; flex-wrap: wrap; gap: 12px;
+      border-radius: 14px 14px 0 0; border-bottom: none;
+    }
+    .voice-left { display: flex; align-items: center; gap: 12px; }
+    .voice-icon { font-size: 22px; }
+    .voice-title { font-size: 14px; font-weight: 600; }
+    .voice-hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .voice-btn { padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+
+    .chat-box {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 0 0 14px 14px;
+      padding: 20px 22px; margin-bottom: 26px; display: none;
+    }
+    .chat-box.open { display: block; }
+    .chat-messages { max-height: 200px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .chat-msg { padding: 10px 14px; border-radius: 10px; font-size: 13px; max-width: 85%; }
+    .chat-msg.bot { background: rgba(0,194,168,0.12); border: 1px solid rgba(0,194,168,0.2); color: var(--teal); align-self: flex-start; }
+    .chat-msg.user { background: rgba(255,255,255,0.07); align-self: flex-end; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input { flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; }
+    .chat-send { padding: 10px 18px; background: var(--teal); border-radius: 10px; border: none; color: #001a17; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+    /* Search + Filter */
+    .search-section { margin-bottom: 24px; }
+    .search-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .search-wrap { flex: 1; min-width: 200px; position: relative; }
+    .search-wrap input {
+      width: 100%; padding: 13px 16px 13px 44px;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .search-wrap input:focus { border-color: var(--teal); }
+    .search-wrap::before { content: '🔍'; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; }
+
+    .filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-chip {
+      padding: 7px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,194,168,0.2);
+      border-radius: 100px; color: var(--muted); font-size: 12px; cursor: pointer; transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .filter-chip:hover, .filter-chip.active { background: rgba(0,194,168,0.15); border-color: var(--teal); color: var(--teal); }
+
+    .etype-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .etype-chip {
+      padding: 6px 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px; color: var(--muted); font-size: 12px; cursor: pointer; transition: all 0.2s;
+    }
+    .etype-chip.active { background: rgba(255,100,50,0.15); border-color: #ff6432; color: #ff6432; }
+
+    /* Hospital Cards */
+    .hospitals-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--teal); display: flex; align-items: center; gap: 8px; }
+    .hosp-count { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
+    .sort-select {
+      padding: 7px 12px; background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px;
+      outline: none; cursor: pointer;
+    }
+
+    .hospitals-list { display: flex; flex-direction: column; gap: 14px; }
+
+    .hosp-card {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 18px; padding: 22px 24px; position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      animation: fadeUp 0.5s ease both;
+    }
+    .hosp-card:hover { transform: translateY(-3px); box-shadow: 0 10px 40px rgba(0,194,168,0.12); }
+
+    .hosp-card.best-choice {
+      border-color: rgba(255,215,0,0.5);
+      background: linear-gradient(135deg, #041e1a, #05241f);
+      box-shadow: 0 0 0 1px rgba(255,215,0,0.2), 0 8px 32px rgba(255,215,0,0.08);
+    }
+
+    .best-badge {
+      position: absolute; top: 14px; right: 14px;
+      background: linear-gradient(135deg, #ffd700, #ffb300);
+      color: #000; font-size: 11px; font-weight: 700; padding: 4px 10px;
+      border-radius: 100px; font-family: 'Space Mono', monospace; letter-spacing: 1px;
+    }
+    .second-badge {
+      position: absolute; top: 14px; right: 14px;
+      background: rgba(192,192,192,0.2); border: 1px solid rgba(192,192,192,0.4);
+      color: #c0c0c0; font-size: 11px; font-weight: 700; padding: 4px 10px;
+      border-radius: 100px; font-family: 'Space Mono', monospace;
+    }
+
+    .region-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px;
+      font-family: 'Space Mono', monospace; letter-spacing: 1px; margin-left: 8px;
+      background: rgba(0,194,168,0.12); border: 1px solid rgba(0,194,168,0.25); color: var(--teal);
+      vertical-align: middle;
+    }
+
+    .hosp-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+    .hosp-info { flex: 1; padding-right: 80px; }
+    .hosp-name { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    .hosp-type { font-size: 11px; color: var(--teal); font-family: 'Space Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
+    .hosp-addr { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .hosp-stats { display: flex; gap: 20px; margin: 14px 0; flex-wrap: wrap; }
+    .stat { display: flex; flex-direction: column; gap: 3px; }
+    .stat-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .stat-val { font-size: 14px; font-weight: 700; }
+    .stat-val.green { color: var(--green); }
+    .stat-val.orange { color: var(--orange); }
+    .stat-val.red { color: var(--red); }
+
+    .score-section { margin: 12px 0; }
+    .score-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .score-text { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 1px; color: var(--muted); }
+    .score-num { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; }
+    .score-bar { height: 6px; background: rgba(255,255,255,0.07); border-radius: 100px; overflow: hidden; }
+    .score-fill { height: 100%; border-radius: 100px; transition: width 0.8s ease; }
+
+    .urgency-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600;
+      margin: 8px 0;
+    }
+    .urgency-critical { background: rgba(255,68,68,0.15); border: 1px solid rgba(255,68,68,0.4); color: var(--red); }
+    .urgency-moderate { background: rgba(255,171,64,0.12); border: 1px solid rgba(255,171,64,0.3); color: var(--orange); }
+    .urgency-safe { background: rgba(0,229,122,0.12); border: 1px solid rgba(0,229,122,0.3); color: var(--green); }
+
+    .beds-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+    .bed-chip {
+      padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .bed-full { background: rgba(255,68,68,0.12); border: 1px solid rgba(255,68,68,0.3); color: var(--red); }
+    .bed-avail { background: rgba(0,229,122,0.1); border: 1px solid rgba(0,229,122,0.25); color: var(--green); }
+    .bed-partial { background: rgba(255,171,64,0.1); border: 1px solid rgba(255,171,64,0.25); color: var(--orange); }
+
+    .hosp-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .hbtn {
+      padding: 9px 16px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; border: none; font-family: 'DM Sans', sans-serif;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .hbtn-call { background: rgba(0,229,122,0.15); border: 1px solid rgba(0,229,122,0.3); color: var(--green); }
+    .hbtn-call:hover { background: rgba(0,229,122,0.3); }
+    .hbtn-dir { background: rgba(0,194,168,0.15); border: 1px solid var(--border); color: var(--teal); }
+    .hbtn-dir:hover { background: rgba(0,194,168,0.3); }
+    
+
+    .survival-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .survival-badge { font-weight: 700; font-size: 13px; }
+
+    .empty-state {
+      text-align: center; padding: 48px 20px;
+      color: var(--muted); font-size: 14px;
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+
+   
+
+    @media (max-width: 640px) {
+      .nav { padding: 12px 14px; }
+      .main { padding: 20px 14px; }
+      .hosp-info { padding-right: 0; }
+      .best-badge, .second-badge { position: static; margin-bottom: 8px; display: inline-block; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="#">
+    <div class="nav-icon">🏥</div>
+    <span class="nav-title">Hospital Finder</span>
+  </a>
+  <a class="nav-back" href="#">← Home</a>
+</nav>
+
+<main class="main">
+
+  <div class="alert-bar" id="alertBar">
+    🔔 Showing  nearest hospitals from your location.
+  </div>
+
+  
+
+  <!-- Chat Assistant -->
+  <div class="voice-bar">
+    <div class="voice-left">
+      <div class="voice-icon">🤖</div>
+      <div>
+        <div class="voice-title">Emergency Assistant</div>
+        <div class="voice-hint">Ask: "Which hospital for heart attack?" or "Show ICU beds"</div>
+      </div>
+    </div>
+    <button class="voice-btn" style="background: rgba(0,194,168,0.15); color:var(--teal); border:1px solid var(--border);" onclick="toggleChat()">💬 Chat</button>
+  </div>
+  <div class="chat-box" id="chatBox">
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg bot">👋 Hello! I'm your Emergency Assistant. Ask me which hospital to visit based on your emergency type.</div>
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chatInput" placeholder="Type your question..." onkeydown="if(event.key==='Enter') sendChat()"/>
+      <button class="chat-send" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+  <!-- Search + Filters -->
+  <div class="search-section">
+    <div class="search-row">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Search hospitals by name, city or specialty..." oninput="filterAndRender()"/>
+      </div>
+    </div>
+    <div class="filter-row">
+      <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">SORT:</span>
+      <div class="filter-chip active" id="chip-score" onclick="setSort('score',this)">🏆 Best Match</div>
+      <div class="filter-chip" id="chip-distance" onclick="setSort('distance',this)">📍 Distance</div>
+      <div class="filter-chip" id="chip-availability" onclick="setSort('availability',this)">🛏️ Beds</div>
+      <div class="filter-chip" id="chip-rating" onclick="setSort('rating',this)">⭐ Rating</div>
+    </div>
+   
+    <div class="etype-row">
+      <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">TYPE:</span>
+      <div class="etype-chip active" id="etype-all" onclick="setEtype('All',this)">All</div>
+      <div class="etype-chip" onclick="setEtype('Cardiac',this)">❤️ Cardiac</div>
+      <div class="etype-chip" onclick="setEtype('Neuro',this)">🧠 Neuro</div>
+      <div class="etype-chip" onclick="setEtype('Trauma',this)">🚑 Trauma</div>
+      <div class="etype-chip" onclick="setEtype('Multispeciality',this)">🏥 Multispeciality</div>
+    </div>
+  </div>
+
+  <!-- Hospital Results -->
+  <div class="hospitals-header">
+    <div class="section-title" style="font-size:18px;">Top Hospitals</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="hosp-count" id="hospCount">Showing 15 hospitals</span>
+    </div>
+  </div>
+
+  <div class="hospitals-list" id="hospitalsList"></div>
+
+</main>
+
+
+<script>
+// ====================== STATIC HOSPITAL DATA ======================
+const HOSPITALS = [
+  {
+    id: 1,
+    name: "Apollo Hospitals",
+    city: "Hyderabad",
+    region: "Telangana",
+    address: "Jubilee Hills, Hyderabad – 500 033",
+    type: "Multispeciality",
+    specialties: ["Cardiac","Neuro","Trauma","Multispeciality"],
+    lat: 17.4243,
+    lng: 78.4100,
+    phone: "+914023607777",
+    rating: 4.8,
+    distance: 0.3,
+    wait: 12,
+    icu: { available: 4, total: 10 },
+    general: { available: 18, total: 30 },
+    score: 97
+  },
+  
+  
+];
+
+// ====================== STATE ======================
+let currentSort = 'score';
+let currentRegion = 'All';
+let currentEtype = 'All';
+let ghInterval = null, ghSeconds = 3600, ghRunning = false;
+let userLat = null, userLng = null;
+
+// Try to get user location silently on load for directions
+navigator.geolocation && navigator.geolocation.getCurrentPosition(
+  pos => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; },
+  () => {}
+);
+
+// ====================== HELPERS ======================
+function getUrgency(h) {
+  if (h.icu.available === 0) return 'critical';
+  if (h.icu.available < 3) return 'moderate';
+  return 'safe';
+}
+function getScoreColor(s) {
+  if (s >= 85) return 'var(--green)';
+  if (s >= 65) return 'var(--orange)';
+  return 'var(--red)';
+}
+function getBedClass(avail, total) {
+  if (avail === 0) return 'bed-full';
+  if (avail / Math.max(total,1) < 0.25) return 'bed-partial';
+  return 'bed-avail';
+}
+function getTravelTime(dist) { return Math.round(dist * 3 + 2); }
+
+// ====================== FILTER & RENDER ======================
+function filterAndRender() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = [...HOSPITALS];
+
+  if (currentRegion !== 'All') {
+    list = list.filter(h => h.region === currentRegion);
+  }
+  if (currentEtype !== 'All') {
+    list = list.filter(h => h.specialties.includes(currentEtype));
+  }
+  if (q) {
+    list = list.filter(h =>
+      h.name.toLowerCase().includes(q) ||
+      h.city.toLowerCase().includes(q) ||
+      h.region.toLowerCase().includes(q) ||
+      h.type.toLowerCase().includes(q)
+    );
+  }
+
+  if (currentSort === 'score') list.sort((a,b) => b.score - a.score);
+  else if (currentSort === 'distance') list.sort((a,b) => a.distance - b.distance);
+  else if (currentSort === 'availability') list.sort((a,b) => b.icu.available - a.icu.available);
+  else if (currentSort === 'rating') list.sort((a,b) => b.rating - a.rating);
+
+  document.getElementById('hospCount').textContent = `Showing ${list.length} hospital${list.length!==1?'s':''}`;
+
+  if (!list.length) {
+    document.getElementById('hospitalsList').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🏥</div>
+        <div>No hospitals match your search. Try a different filter or region.</div>
+      </div>`;
+    return;
+  }
+
+  const container = document.getElementById('hospitalsList');
+  container.innerHTML = list.map((h, i) => {
+    const isFirst = i === 0;
+    const isSecond = i === 1;
+    const urgency = getUrgency(h);
+    const urgencyClass = `urgency-${urgency}`;
+    const urgencyText = urgency === 'critical' ? '⚠️ Critical — ICU Full' : urgency === 'moderate' ? '⏳ Moderate Urgency' : '✅ Safe — Beds Available';
+    const travelTime = getTravelTime(h.distance);
+    const fillColor = getScoreColor(h.score);
+    const icuClass = getBedClass(h.icu.available, h.icu.total);
+    const genClass = getBedClass(h.general.available, h.general.total);
+
+    // Google Maps directions URL — uses user location if available, else just destination
+    const dirUrl = userLat && userLng
+      ? `https://www.google.com/maps/dir/${userLat},${userLng}/${h.lat},${h.lng}`
+      : `https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}&travelmode=driving`;
+
+    return `
+    <div class="hosp-card ${isFirst ? 'best-choice' : ''}" style="animation-delay:${i*0.06}s">
+      ${isFirst ? '<div class="best-badge">🥇 BEST CHOICE</div>' : isSecond ? '<div class="second-badge">🥈 2nd Option</div>' : ''}
+
+      <div class="hosp-top">
+        <div class="hosp-info">
+          <div class="hosp-name">${h.name} <span class="region-badge">${h.region}</span></div>
+          <div class="hosp-type">${h.type}</div>
+          <div class="hosp-addr">📍 ${h.address}</div>
+        </div>
+      </div>
+
+      <div class="urgency-tag ${urgencyClass}">${urgencyText}</div>
+
+      <div class="hosp-stats">
+        <div class="stat">
+          <div class="stat-label">Distance</div>
+          <div class="stat-val">${h.distance.toFixed(1)} km</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Rating</div>
+          <div class="stat-val">⭐ ${h.rating.toFixed(1)}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Wait Time</div>
+          <div class="stat-val ${h.wait > 20 ? 'orange' : 'green'}">${h.wait} min</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Travel Time</div>
+          <div class="stat-val">${travelTime} min</div>
+        </div>
+      </div>
+
+      <div class="beds-row">
+        <div class="bed-chip ${icuClass}">🏥 ICU: ${h.icu.available}/${h.icu.total}</div>
+        <div class="bed-chip ${genClass}">🛏️ General: ${h.general.available}/${h.general.total}</div>
+      </div>
+
+      <div class="score-section">
+        <div class="score-label">
+          <span class="score-text">DECISION SCORE</span>
+          <span class="score-num" style="color:${fillColor}">${h.score}</span>
+        </div>
+        <div class="score-bar">
+          <div class="score-fill" style="width:${h.score}%;background:${fillColor}"></div>
+        </div>
+      </div>
+
+      <div class="survival-row">
+        🧠 Survival Predictor:
+        <span class="survival-badge" style="color:${urgency==='critical'?'var(--red)':urgency==='moderate'?'var(--orange)':'var(--green)'}">
+          ${travelTime} min to treatment · ${urgency === 'critical' ? 'HIGH RISK' : urgency === 'moderate' ? 'MODERATE' : 'LOW RISK'}
+        </span>
+      </div>
+
+      <div class="hosp-actions">
+        <button class="hbtn hbtn-call" onclick="window.open('tel:${h.phone}')">📞 Call</button>
+        <button class="hbtn hbtn-dir" onclick="window.open('${dirUrl}','_blank')">🗺️ Directions</button
+    </div>`;
+  }).join('');
+}
+
+// ====================== SORT / FILTER CONTROLS ======================
+function setSort(val, el) {
+  currentSort = val;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  filterAndRender();
+}
+function setRegion(val, el) {
+  currentRegion = val;
+  document.querySelectorAll('.etype-row:nth-of-type(1) .etype-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filterAndRender();
+}
+function setEtype(val, el) {
+  currentEtype = val;
+  document.querySelectorAll('.etype-row:nth-of-type(2) .etype-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  filterAndRender();
+}
+
+
+
+
+
+// ====================== CHAT ======================
+function toggleChat() { document.getElementById('chatBox').classList.toggle('open'); }
+
+const chatRules = [
+  { keys: ['heart','cardiac'], reply: '❤️ For cardiac emergencies, use the ❤️ Cardiac filter. Apollo Chennai, Narayana Health Bengaluru, and Kokilaben Mumbai are top cardiac centers.' },
+  { keys: ['accident','trauma','crash'], reply: '🚑 For trauma/accidents, use the 🚑 Trauma filter. Apollo Hyderabad, Manipal Bengaluru, and Lilavati Mumbai have 24/7 trauma units.' },
+  { keys: ['icu','intensive'], reply: '🏥 Check the ICU chip on each card. Green = available, orange = limited, red = full. NIMS Hyderabad currently has the most ICU beds.' },
+  { keys: ['neuro','brain','stroke','spine'], reply: '🧠 For neuro/stroke, use the 🧠 Neuro filter. Every minute counts — choose the closest hospital with ICU availability.' },
+  { keys: ['mumbai'], reply: '🌆 Top hospitals in Mumbai: Kokilaben Andheri (rated 4.9), Lilavati Bandra (4.8), and Hinduja Mahim (4.7).' },
+  { keys: ['bangalore','bengaluru','karnataka'], reply: '🌿 Top hospitals in Bengaluru: Manipal HAL Airport Road (4.8) and Narayana Health City (4.7).' },
+  { keys: ['hyderabad','telangana'], reply: '🏙️ Top hospitals in Hyderabad: Apollo Jubilee Hills (4.8), KIMS Secunderabad (4.7), and NIMS (government, large capacity).' },
+  { keys: ['chennai','tamil'], reply: '🏛️ Top hospitals in Chennai: Apollo Greams Road (4.9) is the highest rated. Fortis Malar is excellent for cardiac care.' },
+  { keys: ['andhra','vizag','visakhapatnam'], reply: '🌊 For Andhra Pradesh: Apollo Visakhapatnam (4.7) and SVIMS Tirupati (government super-speciality) are top choices.' },
+  { keys: ['close','nearest','near','distance'], reply: '📍 Sort by 📍 Distance to see hospitals nearest to the listed addresses. Use Directions button for real-time navigation.' },
+  { keys: ['best','recommend'], reply: '🏆 Top 3 overall: Apollo Chennai (score 99), Kokilaben Mumbai (score 98), Apollo Hyderabad (score 97). Use Best Match sort for your filtered view.' },
+  { keys: ['score','decision'], reply: '🧠 Decision Score combines bed availability, rating, distance, and wait time. Scores 85+ (green) = best choice, 65–84 (orange) = good, below 65 (red) = limited capacity.' },
+  { keys: ['call','phone','contact'], reply: '📞 Click the green Call button on any hospital card to dial directly. All numbers are verified for the hospitals listed.' },
+  { keys: ['direction','navigate','map'], reply: '🗺️ Click 🗺️ Directions on any card — it opens Google Maps with turn-by-turn navigation to that hospital from your current location.' },
+];
+
+function sendChat() {
+  const inp = document.getElementById('chatInput');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  const msgs = document.getElementById('chatMessages');
+  msgs.innerHTML += `<div class="chat-msg user">${msg}</div>`;
+  inp.value = '';
+  const lower = msg.toLowerCase();
+  let reply = "I'm not sure about that. Try: 'Best hospital in Mumbai', 'Cardiac emergency Chennai', 'Which hospital for stroke?', or 'Show ICU beds'.";
+  for (const rule of chatRules) {
+    if (rule.keys.some(k => lower.includes(k))) { reply = rule.reply; break; }
+  }
+  setTimeout(() => {
+    msgs.innerHTML += `<div class="chat-msg bot">${reply}</div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 400);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ====================== REGION FILTER FIX ======================
+// Re-wire region chips since nth-of-type is fragile in this markup
+document.querySelectorAll('.etype-row').forEach((row, ri) => {
+  row.querySelectorAll('.etype-chip').forEach(chip => {
+    chip.addEventListener('click', function() {
+      row.querySelectorAll('.etype-chip').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+});
+
+// ====================== INIT ======================
+filterAndRender();
+</script>
+</body>
+</html>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rapid Response — Volunteer Tracking</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<style>
+:root{
+  --bg:#080C14;
+  --card:#0E1523;
+  --card2:#121C2E;
+  --white:#EEF2FF;
+  --muted:#7C8AA5;
+  --green:#1DB97A;
+  --red:#E53535;
+}
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  background:var(--bg);
+  color:var(--white);
+  font-family:'DM Sans',sans-serif;
+  padding:30px;
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+}
+
+.title{
+  font-family:'Bebas Neue';
+  font-size:56px;
+  letter-spacing:2px;
+}
+
+.subtitle{
+  color:var(--muted);
+  margin-bottom:25px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:380px 1fr;
+  gap:24px;
+}
+
+.card{
+  background:var(--card);
+  padding:22px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,0.08);
+}
+
+.label{
+  font-size:13px;
+  color:var(--muted);
+  margin-top:10px;
+}
+
+.value{
+  font-size:18px;
+  font-weight:600;
+  margin-top:4px;
+}
+
+#map{
+  height:650px;
+  border-radius:20px;
+}
+
+.btn{
+  width:100%;
+  margin-top:12px;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.track{
+  background:var(--green);
+  color:white;
+}
+
+.call{
+  background:rgba(229,53,53,0.15);
+  color:#ffb3b3;
+  border:1px solid rgba(229,53,53,0.3);
+}
+
+.status{
+  margin-top:15px;
+  background:var(--card2);
+  padding:12px;
+  border-radius:12px;
+  font-size:13px;
+  color:var(--muted);
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="title">HELP IS COMING</div>
+  <div class="subtitle">Live Uber-style tracking of volunteer</div>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="label">Volunteer Name</div>
+      <div class="value" id="volunteerName">Waiting...</div>
+
+      <div class="label">Distance</div>
+      <div class="value" id="distance">--</div>
+
+      <div class="label">ETA</div>
+      <div class="value" id="eta">--</div>
+
+      <div class="label">Status</div>
+      <div class="value" id="statusText">Waiting for acceptance...</div>
+
+      <button class="btn track" onclick="focusMap()">📍 Focus Map</button>
+      <button class="btn call" onclick="callVolunteer()">📞 Call Volunteer</button>
+      <button class="btn call" onclick="callAmbulance()">🚑 Ambulance</button>
+
+      <div class="status" id="liveStatus">System initializing...</div>
+    </div>
+
+    <div id="map"></div>
+
+  </div>
+</div>
+
+<script>
+let map;
+let userMarker;
+let userLat, userLng;
+let routeLine;
+let volunteerMarkers = [];
+let acceptedVolunteer = null;
+let routePoints = [];
+let routeIndex = 0;
+
+// ================= MAP INIT =================
+
+function initMap() {
+
+  const savedLat = localStorage.getItem("rr_userLat");
+  const savedLng = localStorage.getItem("rr_userLng");
+
+  if (savedLat && savedLng) {
+
+    userLat = parseFloat(savedLat);
+    userLng = parseFloat(savedLng);
+
+    loadMap();
+
+  } else {
+
+    navigator.geolocation.getCurrentPosition((pos) => {
+
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+
+      loadMap();
+
+    }, () => {
+
+      alert("Unable to get your location.");
+
+    });
+
+  }
+}
+
+function loadMap() {
+
+  map = L.map("map").setView([userLat, userLng], 14);
+
+  L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution: "© OpenStreetMap"
+    }
+  ).addTo(map);
+
+  const userIcon = L.icon({
+    iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+    iconSize: [38, 38],
+    iconAnchor: [19, 38]
+  });
+
+  userMarker = L.marker([userLat, userLng], {
+    icon: userIcon
+  })
+  .addTo(map)
+  .bindPopup("You are here")
+  .bindTooltip("YOU", {
+    permanent: true,
+    direction: "top",
+    offset: [0, -10]
+  })
+  .openPopup();
+
+  showNearbyVolunteers();
+}
+
+// ================= SHOW 3 VOLUNTEERS =================
+
+function showNearbyVolunteers() {
+  const volunteers = [
+    {
+      name: "Rahul",
+      lat: userLat + 0.004,
+      lng: userLng - 0.002,
+      eta: "2 mins"
+    },
+    {
+      name: "Priya",
+      lat: userLat + 0.006,
+      lng: userLng + 0.003,
+      eta: "4 mins"
+    },
+    {
+      name: "Arjun",
+      lat: userLat - 0.005,
+      lng: userLng + 0.002,
+      eta: "6 mins"
+    }
+  ];
+
+  volunteerMarkers = [];
+
+  volunteers.forEach(v => {
+    const marker = L.marker([v.lat, v.lng])
+  .addTo(map)
+  .bindPopup(`${v.name} • ${v.eta}`)
+  .bindTooltip(v.name, {
+    permanent: true,
+    direction: "top",
+    offset: [0, -10]
+  });
+    volunteerMarkers.push({
+      data: v,
+      marker: marker
+    });
+  });
+
+  document.getElementById("liveStatus").innerText =
+    "3 nearby volunteers found...";
+
+  document.getElementById("statusText").innerText =
+    "Waiting for volunteer acceptance...";
+
+  // After 8 seconds Priya accepts
+  setTimeout(() => {
+    acceptPriya();
+  }, 8000);
+}
+
+// ================= PRIYA ACCEPTS =================
+
+function acceptPriya() {
+  acceptedVolunteer = volunteerMarkers.find(
+    v => v.data.name === "Priya"
+  );
+
+  if (!acceptedVolunteer) return;
+
+  volunteerMarkers.forEach(v => {
+    if (v.data.name !== "Priya") {
+      map.removeLayer(v.marker);
+    }
+  });
+
+  document.getElementById("volunteerName").innerText = "Priya";
+
+  document.getElementById("statusText").innerText =
+    "Volunteer accepted and is on the way";
+
+  document.getElementById("liveStatus").innerText =
+    "Priya is approaching your location";
+
+  // ✅ ADD THIS LINE 👇👇👇
+  drawRoute(
+    acceptedVolunteer.data.lat,
+    acceptedVolunteer.data.lng,
+    userLat,
+    userLng
+  );
+
+  moveVolunteerTowardsUser();
+}
+// ================= MOVE PRIYA =================
+
+async function drawRoute(fromLat, fromLng, toLat, toLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const coords = data.routes[0].geometry.coordinates;
+
+  routePoints = coords.map(c => [c[1], c[0]]);
+  routeIndex = 0;
+
+  if (routeLine) map.removeLayer(routeLine);
+
+  routeLine = L.polyline(routePoints, {
+    color: "#1E90FF",
+    weight: 5,
+    opacity: 0.9
+  }).addTo(map);
+}
+// ================= UI UPDATE =================
+
+function updateUI(vLat, vLng) {
+  const dist = getDistance(userLat, userLng, vLat, vLng);
+
+  const eta = Math.ceil((dist / 30) * 60);
+
+  document.getElementById("distance").innerText =
+    dist.toFixed(2) + " KM";
+
+  document.getElementById("eta").innerText =
+    eta + " min";
+}
+
+// ================= DISTANCE =================
+
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+
+  return R * (
+    2 * Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    )
+  );
+}
+
+// ================= ACTIONS =================
+
+function focusMap() {
+  map.setView([userLat, userLng], 15);
+}
+
+function callVolunteer() {
+  alert("Calling Priya...");
+}
+
+function callAmbulance() {
+  window.location.href = "tel:108";
+}
+
+initMap();
+async function drawRoute(fromLat, fromLng, toLat, toLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const coords = data.routes[0].geometry.coordinates;
+
+  routePoints = coords.map(c => [c[1], c[0]]);
+  routeIndex = 0;
+
+  if (routeLine) map.removeLayer(routeLine);
+
+  routeLine = L.polyline(routePoints, {
+    color: "#1E90FF",
+    weight: 5,
+    opacity: 0.9
+  }).addTo(map);
+}
+</script>
+
+</body>
+</html>

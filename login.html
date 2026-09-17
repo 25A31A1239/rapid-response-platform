@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Rapid Response - Login</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'DM Sans',sans-serif;
+}
+
+body{
+
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+
+background:#f6f8fb;
+
+overflow:hidden;
+
+}
+
+/* animated circles */
+
+body::before{
+
+content:"";
+position:absolute;
+
+width:350px;
+height:350px;
+
+background:rgba(229,53,53,.08);
+
+border-radius:50%;
+
+filter:blur(120px);
+
+top:-100px;
+left:-100px;
+
+}
+
+body::after{
+
+content:"";
+position:absolute;
+
+width:300px;
+height:300px;
+
+background:rgba(10,191,163,.08);
+
+border-radius:50%;
+
+filter:blur(120px);
+
+bottom:-80px;
+right:-80px;
+
+}
+
+@keyframes move1{
+
+from{
+transform:translate(0,0);
+}
+
+to{
+transform:translate(80px,60px);
+}
+
+}
+
+@keyframes move2{
+
+from{
+transform:translate(0,0);
+}
+
+to{
+transform:translate(-70px,-40px);
+}
+
+}
+
+.container{
+
+position:relative;
+z-index:5;
+
+width:100%;
+display:flex;
+justify-content:center;
+padding:20px;
+
+}
+
+.login-card{
+
+width:430px;
+
+background:white;
+
+border-radius:30px;
+
+padding:42px;
+
+border:1px solid #e8e8e8;
+
+box-shadow:0 15px 50px rgba(0,0,0,.08);
+
+animation:fadeUp .7s;
+
+}
+@keyframes fadeUp{
+
+from{
+
+opacity:0;
+transform:translateY(30px);
+
+}
+
+to{
+
+opacity:1;
+transform:translateY(0);
+
+}
+
+}
+
+.logo{
+
+display:flex;
+justify-content:center;
+margin-bottom:20px;
+
+}
+
+.logo svg{
+
+animation:pulse 2s infinite;
+
+}
+
+@keyframes pulse{
+
+0%,100%{
+
+transform:scale(1);
+
+}
+
+50%{
+
+transform:scale(1.08);
+
+}
+
+}
+
+h1{
+
+font-family:'Bebas Neue',sans-serif;
+font-size:42px;
+letter-spacing:2px;
+text-align:center;
+
+color:#1a1a2e;
+
+}
+.input-box{
+
+width:100%;
+
+padding:15px;
+
+margin-bottom:15px;
+
+border-radius:12px;
+
+border:1px solid #dfe4ea;
+
+background:#fafafa;
+
+font-size:15px;
+
+color:#222;
+
+outline:none;
+
+transition:.25s;
+
+}
+
+.input-box:focus{
+
+border-color:#0ABFA3;
+
+box-shadow:0 0 0 4px rgba(10,191,163,.12);
+
+background:white;
+
+}
+
+.input-box::placeholder{
+
+color:#9ca3af;
+
+}
+
+.input-box::placeholder{
+
+color:#d0d0d0;
+
+}
+
+.google-btn{
+
+width:100%;
+
+padding:15px;
+
+background:white;
+
+border:1px solid #e5e7eb;
+
+border-radius:12px;
+
+cursor:pointer;
+
+font-size:15px;
+
+font-weight:600;
+
+transition:.25s;
+
+margin-bottom:18px;
+
+}
+
+.google-btn:hover{
+
+background:#f8fafc;
+
+}
+.divider{
+
+text-align:center;
+
+color:#ddd;
+
+margin:15px 0;
+
+font-size:13px;
+
+}
+
+.signin-btn{
+
+width:100%;
+
+padding:15px;
+
+background:#E53535;
+
+color:white;
+
+border:none;
+
+border-radius:12px;
+
+font-size:16px;
+
+font-weight:600;
+
+cursor:pointer;
+
+transition:.25s;
+
+}
+
+.signin-btn:hover{
+
+background:#c62828;
+
+}
+
+.signin-btn:hover{
+
+background:#d90429;
+
+transform:translateY(-2px);
+
+}
+
+.footer{
+
+margin-top:25px;
+
+text-align:center;
+
+font-size:13px;
+
+color:#6b7280;
+
+}
+
+.footer span{
+
+color:white;
+
+font-weight:bold;
+
+}
+
+.loading{
+
+display:none;
+
+margin-top:18px;
+
+text-align:center;
+
+color:white;
+
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+<div class="login-card">
+
+<div class="logo">
+
+<svg width="70" height="70" viewBox="0 0 100 100">
+<path d="M50 85 L20 55 A15 15 0 1 1 50 35 A15 15 0 1 1 80 55 Z"
+fill="#ef233c"/>
+<polyline
+points="25,55 35,55 42,45 50,65 60,40 70,55 75,55"
+fill="none"
+stroke="white"
+stroke-width="4"/>
+</svg>
+
+</div>
+
+<h1>Rapid Response</h1>
+
+<p class="subtitle">
+Sign in to access your emergency dashboard
+</p>
+
+<button class="google-btn" onclick="googleLogin()">
+🔵 Continue with Google
+</button>
+
+<div class="divider">
+──────── OR ────────
+</div>
+
+<input
+type="text"
+id="name"
+class="input-box"
+placeholder="Your Name (Only for first signup)"
+>
+
+<input
+type="email"
+id="email"
+class="input-box"
+placeholder="Email Address"
+>
+
+<input
+type="password"
+id="password"
+class="input-box"
+placeholder="Password"
+>
+
+<button
+class="signin-btn"
+onclick="login()">
+Sign In / Register
+</button>
+
+<div class="loading" id="loading">
+Signing in...
+</div>
+
+<div class="footer">
+
+Protected by Firebase Authentication 🔒
+
+</div>
+
+</div>
+
+</div>
+<script>
+
+firebase.initializeApp({
+    apiKey: "AIzaSyD4n2n0482uzNDz4JxPzL6tmGOA8Cqt2So",
+    authDomain: "rapidresponse-8c598.firebaseapp.com",
+    projectId: "rapidresponse-8c598"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+// Google Login
+function googleLogin(){
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    auth.signInWithPopup(provider)
+    .then(async ()=>{
+
+    const user = auth.currentUser;
+
+    try{
+
+    await db.collection("users").doc(user.uid).set({
+
+        uid:user.uid,
+
+        name:user.displayName || "",
+
+        email:user.email,
+
+        lastLogin:firebase.firestore.FieldValue.serverTimestamp()
+
+    },{merge:true});
+
+    console.log("Firestore Updated Successfully");
+
+}catch(error){
+
+    console.error("Firestore Error:",error);
+
+    alert(error.message);
+
+}
+
+    window.location.href="index.html";
+
+})
+    .catch((error)=>{
+        alert(error.message);
+    });
+
+}
+
+// Email Login / Register
+function login(){
+
+    document.getElementById("loading").style.display="block";
+
+    const name=document.getElementById("name").value.trim();
+
+    const email=document.getElementById("email").value.trim();
+
+    const password=document.getElementById("password").value;
+
+    if(email==="" || password===""){
+
+        alert("Please enter email and password.");
+
+        document.getElementById("loading").style.display="none";
+
+        return;
+
+    }
+
+    auth.signInWithEmailAndPassword(email,password)
+
+   .then(async ()=>{
+
+    const user = auth.currentUser;
+
+    await db.collection("users").doc(user.uid).set({
+
+        uid:user.uid,
+
+        name:user.displayName || name || "",
+
+        email:user.email,
+
+        lastLogin:firebase.firestore.FieldValue.serverTimestamp()
+
+    },{merge:true});
+
+    window.location.href="index.html";
+
+})
+
+    .catch((err)=>{
+
+        if(err.code==="auth/user-not-found"){
+
+            auth.createUserWithEmailAndPassword(email,password)
+
+            .then(async(result)=>{
+
+    if(name!==""){
+
+        await result.user.updateProfile({
+            displayName:name
+        });
+
+    }
+
+    await db.collection("users").doc(result.user.uid).set({
+
+        uid:result.user.uid,
+
+        name:name,
+
+        email:result.user.email,
+
+        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+
+        lastLogin:firebase.firestore.FieldValue.serverTimestamp(),
+
+        status:"Safe"
+
+    });
+
+    window.location.href="index.html";
+
+})
+
+            .catch((e)=>{
+
+                document.getElementById("loading").style.display="none";
+
+                alert(e.message);
+
+            });
+
+        }else{
+
+            document.getElementById("loading").style.display="none";
+
+            alert(err.message);
+
+        }
+
+    });
+
+}
+
+// Already logged in?
+auth.onAuthStateChanged((user)=>{
+
+    if(user){
+
+        window.location.href="index.html";
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
